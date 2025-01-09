@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"image"
 	"image/color"
@@ -15,7 +14,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"golang.org/x/image/font/gofont/goregular"
 )
 
 const WordsPerSec = 2.71828
@@ -44,7 +42,7 @@ var config = GameConfig{
 	DifficultyScaling: 0.1,
 	GameOverWords: []string{
 		"G", "G\tA", "G\tA\tM", "G\tA\tM\tE\t\tO", "o\te\t", "\t\t\tr",
-		"G A M E   O V", "GAME OVER",
+		"G A M E   O V", "GAME OVER", "GAME OVER", "GAME OVER", "GAME OVER",
 	},
 }
 
@@ -87,17 +85,6 @@ func (game *Game) Draw(screen *ebiten.Image) {
 	game.drawPaddles(screen)
 	game.drawBall(screen)
 	game.drawScores(screen)
-
-	if game.FontFace == nil {
-		faceSrc, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
-		if err != nil {
-			log.Fatal(err)
-		}
-		game.FontFace = &text.GoTextFace{
-			Source: faceSrc,
-			Size:   21,
-		}
-	}
 }
 
 func (game *Game) Update() error {
@@ -170,14 +157,14 @@ func drawCircle(screen *ebiten.Image, rect Rectangle, clr color.Color) {
 }
 
 func (g *Game) drawScores(screen *ebiten.Image) {
-	scoreText := fmt.Sprintf("Player1 CurrentScore: %d", g.Player1CurrentScore)
+	scoreText := fmt.Sprintf("Player1 Score: %d", g.Player1CurrentScore)
 	scoreOptions := &text.DrawOptions{}
 	scoreOptions.GeoM.Translate(10, 20)
 	text.Draw(screen, scoreText, g.FontFace, scoreOptions)
 
-	highScoreText := fmt.Sprintf("Player2 CurrentScore: %d", g.Player2CurrentScore)
+	highScoreText := fmt.Sprintf("Player2 Score: %d", g.Player2CurrentScore)
 	highScoreOptions := &text.DrawOptions{}
-	highScoreOptions.GeoM.Translate(10, 40)
+	highScoreOptions.GeoM.Translate(float64((config.WindowWidth/2)+10), 20)
 	text.Draw(screen, highScoreText, g.FontFace, highScoreOptions)
 }
 
@@ -200,11 +187,17 @@ func (b *Ball) Move() {
 func (g *Game) checkCollisions() {
 	// Ball Out of Bounds
 	if g.GameBall.Rect.PosX < 0 {
-		g.GameOver = true
-		g.Winner = "Player 2"
+		g.Player2CurrentScore++
+		g.resetBallPosition()
 	} else if g.GameBall.Rect.PosX+g.GameBall.Rect.Width > config.WindowWidth {
-		g.GameOver = true
-		g.Winner = "Player 1"
+		g.Player1CurrentScore++
+		g.resetBallPosition()
+	}
+
+	if g.Player1CurrentScore >= 5 {
+		g.declareWinner("Player 1")
+	} else if g.Player2CurrentScore >= 5 {
+		g.declareWinner("Player 2")
 	}
 
 	// Ball Hits Walls
@@ -212,20 +205,22 @@ func (g *Game) checkCollisions() {
 		g.GameBall.SpeedY = -g.GameBall.SpeedY
 	}
 
-	// Ball Hits Paddles
+	// Ball hits paddles
 	if g.isBallCollidingWithPaddle(g.Player1Paddle.Rect) {
 		g.GameBall.SpeedX = -g.GameBall.SpeedX
-		g.Player1CurrentScore++
-		// Optional: Speed scaling logic
 		g.GameBall.SpeedX += int(config.DifficultyScaling * float64(g.Player1CurrentScore+g.Player2CurrentScore))
 	}
 	if g.isBallCollidingWithPaddle(g.Player2Paddle.Rect) {
 		g.GameBall.SpeedX = -g.GameBall.SpeedX
-		g.Player2CurrentScore++
-		// Optional: Speed scaling logic
 		g.GameBall.SpeedX += int(config.DifficultyScaling * float64(g.Player1CurrentScore+g.Player2CurrentScore))
 	}
 }
+
+func (g *Game) declareWinner(winner string) {
+	g.Winner = winner
+	g.GameOver = true
+}
+
 func (g *Game) isBallCollidingWithPaddle(paddle Rectangle) bool {
 	ball := g.GameBall.Rect
 	return ball.PosX < paddle.PosX+paddle.Width &&
@@ -234,8 +229,7 @@ func (g *Game) isBallCollidingWithPaddle(paddle Rectangle) bool {
 		ball.PosY+ball.Height > paddle.PosY
 }
 
-// Game Reset
-func (g *Game) resetGame() {
+func (g *Game) resetBallPosition() {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	directionX := rng.Intn(2)*2 - 1
 	directionY := rng.Intn(2)*2 - 1
@@ -250,15 +244,26 @@ func (g *Game) resetGame() {
 		SpeedX: directionX * config.DefaultBallSpeed,
 		SpeedY: directionY * config.DefaultBallSpeed,
 	}
+}
+
+// Game Reset
+func (g *Game) resetGame() {
+	g.resetBallPosition()
 	g.Player1CurrentScore = 0
 	g.Player2CurrentScore = 0
 	g.Winner = ""
 }
 
 func loadFontFace() text.Face {
-	faceSrc, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
+	fontFilePath := "../assets/spaceranger.ttf"
+	fontFile, err := os.Open(fontFilePath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error opening font file %s: %v", fontFilePath, err)
+	}
+	defer fontFile.Close()
+	faceSrc, err := text.NewGoTextFaceSource(fontFile)
+	if err != nil {
+		log.Fatalf("Error creating text face source: %v", err)
 	}
 	return &text.GoTextFace{Source: faceSrc, Size: 21}
 }
