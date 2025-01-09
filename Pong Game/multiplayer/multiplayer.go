@@ -15,15 +15,28 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 )
 
-var (
-	windowWidth      = 640
-	windowHeight     = 480
-	paddleHeight     = 100
-	paddleWidth      = 18
-	ballDimension    = 25
-	defaultBallSpeed = 3
-	paddleMoveSpeed  = 6
-)
+// Constants and Game Configuration
+type GameConfig struct {
+	WindowWidth       int
+	WindowHeight      int
+	PaddleHeight      int
+	PaddleWidth       int
+	BallSize          int
+	DefaultBallSpeed  int
+	PaddleMoveSpeed   int
+	DifficultyScaling float64
+}
+
+var config = GameConfig{
+	WindowWidth:       640,
+	WindowHeight:      480,
+	PaddleHeight:      100,
+	PaddleWidth:       18,
+	BallSize:          25,
+	DefaultBallSpeed:  3,
+	PaddleMoveSpeed:   6,
+	DifficultyScaling: 0.1,
+}
 
 type Rectangle struct {
 	PosX, PosY, Width, Height int
@@ -45,58 +58,22 @@ type Game struct {
 	Player1CurrentScore int
 	Player2CurrentScore int
 	FontFace            text.Face
-	gameOver            bool
-	winner              string
+	GameOver            bool
+	Winner              string
 }
 
-func (game *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return windowWidth, windowHeight
-}
-
-func (game *Game) drawTextCentered(screen *ebiten.Image, str string, yOffset float64) {
-	x := float64(windowWidth)/2 - float64(windowWidth)/2
-	y := float64(windowHeight)/2 + yOffset
-
-	opts := &text.DrawOptions{}
-	opts.GeoM.Translate(x, y)
-	text.Draw(screen, str, game.FontFace, opts)
-}
-
-func (game *Game) DrawGameOverScreen(screen *ebiten.Image) {
-	game.drawTextCentered(screen, "Game Over!", -60)
-	game.drawTextCentered(screen, fmt.Sprintf("Winner: %s", game.winner), -20)
-	var winnerScore int
-	if game.winner == "Player 1" {
-		winnerScore = game.Player1CurrentScore
-	} else if game.winner == "Player 2" {
-		winnerScore = game.Player2CurrentScore
-	}
-	game.drawTextCentered(screen, fmt.Sprintf("Score: %d", winnerScore), 20)
-	game.drawTextCentered(screen, "Press Enter to Restart", 60)
+func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+	return config.WindowWidth, config.WindowHeight
 }
 
 func (game *Game) Draw(screen *ebiten.Image) {
-	vector.DrawFilledCircle(
-		screen,
-		float32(game.GameBall.Rect.PosX+game.GameBall.Rect.Width/2),
-		float32(game.GameBall.Rect.PosY+game.GameBall.Rect.Height/2),
-		float32(game.GameBall.Rect.Width/2),
-		color.RGBA{255, 50, 50, 255},
-		true,
-	)
-
-	vector.DrawFilledRect(
-		screen,
-		float32(game.Player1Paddle.Rect.PosX), float32(game.Player1Paddle.Rect.PosY),
-		float32(game.Player1Paddle.Rect.Width), float32(game.Player1Paddle.Rect.Height),
-		color.RGBA{63, 195, 128, 255}, true,
-	)
-	vector.DrawFilledRect(
-		screen,
-		float32(game.Player2Paddle.Rect.PosX), float32(game.Player2Paddle.Rect.PosY),
-		float32(game.Player2Paddle.Rect.Width), float32(game.Player2Paddle.Rect.Height),
-		color.RGBA{63, 128, 195, 255}, true,
-	)
+	if game.GameOver {
+		game.drawGameOverScreen(screen)
+		return
+	}
+	game.drawPaddles(screen)
+	game.drawBall(screen)
+	game.drawScores(screen)
 
 	if game.FontFace == nil {
 		faceSrc, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
@@ -108,25 +85,12 @@ func (game *Game) Draw(screen *ebiten.Image) {
 			Size:   21,
 		}
 	}
-	if game.gameOver {
-		game.DrawGameOverScreen(screen)
-	} else {
-		scoreText := fmt.Sprintf("Player1 CurrentScore: %d", game.Player1CurrentScore)
-		scoreOptions := &text.DrawOptions{}
-		scoreOptions.GeoM.Translate(10, 20)
-		text.Draw(screen, scoreText, game.FontFace, scoreOptions)
-
-		highScoreText := fmt.Sprintf("Player2 CurrentScore: %d", game.Player2CurrentScore)
-		highScoreOptions := &text.DrawOptions{}
-		highScoreOptions.GeoM.Translate(10, 40)
-		text.Draw(screen, highScoreText, game.FontFace, highScoreOptions)
-	}
 }
 
 func (game *Game) Update() error {
-	if game.gameOver {
+	if game.GameOver {
 		if ebiten.IsKeyPressed(ebiten.KeyEnter) {
-			game.ResetGame()
+			game.resetGame()
 		}
 		return nil
 	}
@@ -134,22 +98,67 @@ func (game *Game) Update() error {
 	game.Player1Paddle.HandleInput(ebiten.KeyW, ebiten.KeyS)
 	game.Player2Paddle.HandleInput(ebiten.KeyArrowUp, ebiten.KeyArrowDown)
 	game.GameBall.Move()
-	game.CheckCollisions()
+	game.checkCollisions()
 	return nil
 }
 
+// Drawing Helpers
+func (game *Game) drawTextCentered(screen *ebiten.Image, str string, yOffset float64) {
+	x := float64(config.WindowWidth)/2 - float64(config.WindowWidth)/2
+	y := float64(config.WindowHeight)/2 + yOffset
+	opts := &text.DrawOptions{}
+	opts.GeoM.Translate(x, y)
+	text.Draw(screen, str, game.FontFace, opts)
+}
+
+func (game *Game) drawGameOverScreen(screen *ebiten.Image) {
+	game.drawTextCentered(screen, "Game Over!", -60)
+	game.drawTextCentered(screen, fmt.Sprintf("Winner: %s", game.Winner), -20)
+	score := game.Player1CurrentScore
+	if game.Winner == "Player 2" {
+		score = game.Player2CurrentScore
+	}
+	game.drawTextCentered(screen, fmt.Sprintf("Score: %d", score), 20)
+	game.drawTextCentered(screen, "Press Enter to Restart", 60)
+}
+
+func (g *Game) drawPaddles(screen *ebiten.Image) {
+	drawRect(screen, g.Player1Paddle.Rect, color.RGBA{63, 195, 128, 255})
+	drawRect(screen, g.Player2Paddle.Rect, color.RGBA{63, 128, 195, 255})
+}
+
+// Utility Functions
+func drawRect(screen *ebiten.Image, rect Rectangle, clr color.Color) {
+	vector.DrawFilledRect(screen, float32(rect.PosX), float32(rect.PosY), float32(rect.Width), float32(rect.Height), clr, true)
+}
+
+func (g *Game) drawBall(screen *ebiten.Image) {
+	drawCircle(screen, g.GameBall.Rect, color.RGBA{255, 50, 50, 255})
+}
+
+func drawCircle(screen *ebiten.Image, rect Rectangle, clr color.Color) {
+	vector.DrawFilledCircle(screen, float32(rect.PosX+rect.Width/2), float32(rect.PosY+rect.Height/2), float32(rect.Width/2), clr, true)
+}
+
+func (g *Game) drawScores(screen *ebiten.Image) {
+	scoreText := fmt.Sprintf("Player1 CurrentScore: %d", g.Player1CurrentScore)
+	scoreOptions := &text.DrawOptions{}
+	scoreOptions.GeoM.Translate(10, 20)
+	text.Draw(screen, scoreText, g.FontFace, scoreOptions)
+
+	highScoreText := fmt.Sprintf("Player2 CurrentScore: %d", g.Player2CurrentScore)
+	highScoreOptions := &text.DrawOptions{}
+	highScoreOptions.GeoM.Translate(10, 40)
+	text.Draw(screen, highScoreText, g.FontFace, highScoreOptions)
+}
+
+// Paddle and Ball Movement
 func (p *Paddle) HandleInput(upKey, downKey ebiten.Key) {
 	if ebiten.IsKeyPressed(upKey) {
-		p.Rect.PosY -= paddleMoveSpeed
-		if p.Rect.PosY < 0 {
-			p.Rect.PosY = 0
-		}
+		p.Rect.PosY = max(0, p.Rect.PosY-config.PaddleMoveSpeed)
 	}
 	if ebiten.IsKeyPressed(downKey) {
-		p.Rect.PosY += paddleMoveSpeed
-		if p.Rect.PosY+p.Rect.Height > windowHeight {
-			p.Rect.PosY = windowHeight - p.Rect.Height
-		}
+		p.Rect.PosY = min(config.WindowHeight-p.Rect.Height, p.Rect.PosY+config.PaddleMoveSpeed)
 	}
 }
 
@@ -158,46 +167,60 @@ func (b *Ball) Move() {
 	b.Rect.PosY += b.SpeedY
 }
 
-func (game *Game) ResetGame() {
-	game.gameOver = false
-	game.GameBall.Rect.PosX = windowWidth / 2
-	game.GameBall.Rect.PosY = windowHeight / 2
-	game.GameBall.SpeedX = defaultBallSpeed
-	game.GameBall.SpeedY = defaultBallSpeed
-	game.winner = ""
-	game.Player1CurrentScore = 0
-	game.Player2CurrentScore = 0
-}
-
-func (game *Game) CheckCollisions() {
-	if game.GameBall.Rect.PosX >= windowWidth {
-		game.gameOver = true
-		game.winner = "Player 1"
-	} else if game.GameBall.Rect.PosX <= 0 {
-		game.gameOver = true
-		game.winner = "Player 2"
+// Collision Detection
+func (g *Game) checkCollisions() {
+	// Ball Out of Bounds
+	if g.GameBall.Rect.PosX < 0 {
+		g.GameOver = true
+		g.Winner = "Player 2"
+	} else if g.GameBall.Rect.PosX+g.GameBall.Rect.Width > config.WindowWidth {
+		g.GameOver = true
+		g.Winner = "Player 1"
 	}
 
-	if game.GameBall.Rect.PosY <= 0 || game.GameBall.Rect.PosY+game.GameBall.Rect.Height >= windowHeight {
-		game.GameBall.SpeedY = -game.GameBall.SpeedY
+	// Ball Hits Walls
+	if g.GameBall.Rect.PosY <= 0 || g.GameBall.Rect.PosY+g.GameBall.Rect.Height >= config.WindowHeight {
+		g.GameBall.SpeedY = -g.GameBall.SpeedY
 	}
 
-	if game.isBallCollidingWithPaddle(game.Player1Paddle.Rect) {
-		game.GameBall.SpeedX = -game.GameBall.SpeedX
-		game.Player1CurrentScore++
+	// Ball Hits Paddles
+	if g.isBallCollidingWithPaddle(g.Player1Paddle.Rect) {
+		g.GameBall.SpeedX = -g.GameBall.SpeedX
+		g.Player1CurrentScore++
+		// Optional: Speed scaling logic
+		g.GameBall.SpeedX += int(config.DifficultyScaling * float64(g.Player1CurrentScore+g.Player2CurrentScore))
 	}
-	if game.isBallCollidingWithPaddle(game.Player2Paddle.Rect) {
-		game.GameBall.SpeedX = -game.GameBall.SpeedX
-		game.Player2CurrentScore++
+	if g.isBallCollidingWithPaddle(g.Player2Paddle.Rect) {
+		g.GameBall.SpeedX = -g.GameBall.SpeedX
+		g.Player2CurrentScore++
+		// Optional: Speed scaling logic
+		g.GameBall.SpeedX += int(config.DifficultyScaling * float64(g.Player1CurrentScore+g.Player2CurrentScore))
 	}
 }
+func (g *Game) isBallCollidingWithPaddle(paddle Rectangle) bool {
+	ball := g.GameBall.Rect
+	return ball.PosX < paddle.PosX+paddle.Width &&
+		ball.PosX+ball.Width > paddle.PosX &&
+		ball.PosY < paddle.PosY+paddle.Height &&
+		ball.PosY+ball.Height > paddle.PosY
+}
 
-func (game *Game) isBallCollidingWithPaddle(paddle Rectangle) bool {
-	ball := game.GameBall.Rect
-	return ball.PosX+ball.Width >= paddle.PosX &&
-		ball.PosX <= paddle.PosX+paddle.Width &&
-		ball.PosY+ball.Height >= paddle.PosY &&
-		ball.PosY <= paddle.PosY+paddle.Height
+// Game Reset
+func (g *Game) resetGame() {
+	g.GameOver = false
+	g.GameBall = Ball{
+		Rect: Rectangle{
+			PosX:   config.WindowWidth / 2,
+			PosY:   config.WindowHeight / 2,
+			Width:  config.BallSize,
+			Height: config.BallSize,
+		},
+		SpeedX: config.DefaultBallSpeed,
+		SpeedY: config.DefaultBallSpeed,
+	}
+	g.Player1CurrentScore = 0
+	g.Player2CurrentScore = 0
+	g.Winner = ""
 }
 
 func loadFontFace() text.Face {
@@ -222,34 +245,35 @@ func loadIconImage() image.Image {
 	return iconImage
 }
 
+// Main Function
 func main() {
 	player1Paddle := Paddle{
 		Rect: Rectangle{
 			PosX:   20,
-			PosY:   (windowHeight - paddleHeight) / 2,
-			Width:  paddleWidth,
-			Height: paddleHeight,
+			PosY:   (config.WindowHeight - config.PaddleHeight) / 2,
+			Width:  config.PaddleWidth,
+			Height: config.PaddleHeight,
 		},
 	}
 
 	player2Paddle := Paddle{
 		Rect: Rectangle{
-			PosX:   windowWidth - 40,
-			PosY:   (windowHeight - paddleHeight) / 2,
-			Width:  paddleWidth,
-			Height: paddleHeight,
+			PosX:   config.WindowWidth - 40,
+			PosY:   (config.WindowHeight - config.PaddleHeight) / 2,
+			Width:  config.PaddleWidth,
+			Height: config.PaddleHeight,
 		},
 	}
 
 	gameBall := Ball{
 		Rect: Rectangle{
-			PosX:   windowWidth / 2,
-			PosY:   windowHeight / 2,
-			Width:  ballDimension,
-			Height: ballDimension,
+			PosX:   config.WindowWidth / 2,
+			PosY:   config.WindowHeight / 2,
+			Width:  config.BallSize,
+			Height: config.BallSize,
 		},
-		SpeedX: defaultBallSpeed,
-		SpeedY: defaultBallSpeed,
+		SpeedX: config.DefaultBallSpeed,
+		SpeedY: config.DefaultBallSpeed,
 	}
 
 	game := &Game{
@@ -259,8 +283,8 @@ func main() {
 		FontFace:      loadFontFace(),
 	}
 
-	ebiten.SetWindowTitle("2-Player Pong")
-	ebiten.SetWindowSize(windowWidth, windowHeight)
+	ebiten.SetWindowTitle("Ultimate Pong!")
+	ebiten.SetWindowSize(config.WindowWidth, config.WindowHeight)
 	ebiten.SetWindowIcon([]image.Image{loadIconImage()})
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
