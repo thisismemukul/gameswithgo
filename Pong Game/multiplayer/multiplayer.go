@@ -17,6 +17,8 @@ import (
 )
 
 const WordsPerSec = 2.71828
+const SpeedIncreaseFactor = 1.1
+const MaxBallSpeed = 20
 
 // Constants and Game Configuration
 type GameConfig struct {
@@ -46,6 +48,18 @@ var config = GameConfig{
 	},
 }
 
+// Game levels
+type DifficultyLevel struct {
+	BallSpeed   int
+	PaddleSpeed int
+}
+
+var Levels = map[string]DifficultyLevel{
+	"Easy":   {BallSpeed: 3, PaddleSpeed: 6},
+	"Medium": {BallSpeed: 5, PaddleSpeed: 8},
+	"Hard":   {BallSpeed: 6, PaddleSpeed: 9},
+}
+
 type Rectangle struct {
 	PosX, PosY, Width, Height int
 }
@@ -69,6 +83,7 @@ type Game struct {
 	GameOver            bool
 	Winner              string
 	WordIndex           float64
+	SelectedLevel       string
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -81,6 +96,10 @@ func (game *Game) Draw(screen *ebiten.Image) {
 		game.drawGameOverScreen(screen)
 		return
 	}
+	if game.SelectedLevel == "" {
+		game.drawSelectGameLevelScreen(screen)
+		return
+	}
 	game.drawMidLine(screen)
 	game.drawPaddles(screen)
 	game.drawBall(screen)
@@ -88,6 +107,19 @@ func (game *Game) Draw(screen *ebiten.Image) {
 }
 
 func (game *Game) Update() error {
+	if game.SelectedLevel == "" {
+		if ebiten.IsKeyPressed(ebiten.Key1) {
+			game.SelectedLevel = "Easy"
+			game.applyLevelSettings()
+		} else if ebiten.IsKeyPressed(ebiten.Key2) {
+			game.SelectedLevel = "Medium"
+			game.applyLevelSettings()
+		} else if ebiten.IsKeyPressed(ebiten.Key3) {
+			game.SelectedLevel = "Hard"
+			game.applyLevelSettings()
+		}
+		return nil
+	}
 	if game.GameOver {
 		newIndex := (game.WordIndex + WordsPerSec/60.0)
 		game.WordIndex = math.Mod(newIndex, float64(len(config.GameOverWords)))
@@ -97,11 +129,17 @@ func (game *Game) Update() error {
 		return nil
 	}
 
-	game.Player1Paddle.HandleInput(ebiten.KeyW, ebiten.KeyS)
-	game.Player2Paddle.HandleInput(ebiten.KeyArrowUp, ebiten.KeyArrowDown)
+	game.Player1Paddle.HandleInput(ebiten.KeyW, ebiten.KeyS, Levels[game.SelectedLevel].PaddleSpeed, game.GameBall.SpeedX)
+	game.Player2Paddle.HandleInput(ebiten.KeyArrowUp, ebiten.KeyArrowDown, Levels[game.SelectedLevel].PaddleSpeed, game.GameBall.SpeedX)
 	game.GameBall.Move()
 	game.checkCollisions()
 	return nil
+}
+
+func (game *Game) applyLevelSettings() {
+	level := Levels[game.SelectedLevel]
+	game.GameBall.SpeedX = level.BallSpeed
+	game.GameBall.SpeedY = level.BallSpeed
 }
 
 // Drawing Helpers
@@ -114,28 +152,34 @@ func (g *Game) drawMidLine(screen *ebiten.Image) {
 	}
 }
 
+func (game *Game) drawSelectGameLevelScreen(screen *ebiten.Image) {
+	game.drawTextCentered(screen, "Need 5 Scores to win", -100)
+	game.drawTextCentered(screen, "Select level", -60)
+	game.drawTextCentered(screen, "Easy:\tPress 1", -20)
+	game.drawTextCentered(screen, "Medium:\tPress 2", 20)
+	game.drawTextCentered(screen, "Hard:\tPress 3", 60)
+}
+
+func (game *Game) drawGameOverScreen(screen *ebiten.Image) {
+	// word := config.GameOverWords[int(game.WordIndex)]
+	word := config.GameOverWords[int(game.WordIndex)%len(config.GameOverWords)]
+	game.drawTextCentered(screen, word, -60)
+
+	game.drawTextCentered(screen, fmt.Sprintf("Winner: %s", game.Winner), -20)
+
+	scoreDifference := int(math.Abs(float64(game.Player1CurrentScore - game.Player2CurrentScore)))
+	game.drawTextCentered(screen, fmt.Sprintf("Won by Score: %d", scoreDifference), 20)
+
+	game.drawTextCentered(screen, "Press Enter to Restart", 60)
+}
+
 func (game *Game) drawTextCentered(screen *ebiten.Image, str string, yOffset float64) {
-	// textWidth := float64(len(str) * 10)
-	// x := (float64(config.WindowWidth) - textWidth) / 2
 	y := float64(config.WindowHeight)/2 + yOffset
 	bounds := screen.Bounds()
 	x := float64(bounds.Dx() / 2)
 	opts := &text.DrawOptions{}
 	opts.GeoM.Translate((x)-float64(len(str)*8/2), (y))
-	// opts.GeoM.Translate(x, y)
 	text.Draw(screen, str, game.FontFace, opts)
-}
-
-func (game *Game) drawGameOverScreen(screen *ebiten.Image) {
-	word := config.GameOverWords[int(game.WordIndex)]
-	game.drawTextCentered(screen, word, -60)
-	game.drawTextCentered(screen, fmt.Sprintf("Winner: %s", game.Winner), -20)
-	score := game.Player1CurrentScore
-	if game.Winner == "Player 2" {
-		score = game.Player2CurrentScore
-	}
-	game.drawTextCentered(screen, fmt.Sprintf("Score: %d", score), 20)
-	game.drawTextCentered(screen, "Press Enter to Restart", 60)
 }
 
 func (g *Game) drawPaddles(screen *ebiten.Image) {
@@ -169,12 +213,18 @@ func (g *Game) drawScores(screen *ebiten.Image) {
 }
 
 // Paddle and Ball Movement
-func (p *Paddle) HandleInput(upKey, downKey ebiten.Key) {
+func (p *Paddle) HandleInput(upKey, downKey ebiten.Key, paddleSpeed int, ballSpeed int) {
+
+	// paddleSpeed := config.PaddleMoveSpeed + int(math.Abs(float64(ballSpeed))/2)
+	newPaddleSpeed := config.PaddleMoveSpeed + int(math.Min(float64(ballSpeed)/3, 10)) // limit paddle speed increase
+
+	paddleSpeed = max(paddleSpeed, newPaddleSpeed)
+
 	if ebiten.IsKeyPressed(upKey) {
-		p.Rect.PosY = max(0, p.Rect.PosY-config.PaddleMoveSpeed)
+		p.Rect.PosY = max(0, p.Rect.PosY-paddleSpeed)
 	}
 	if ebiten.IsKeyPressed(downKey) {
-		p.Rect.PosY = min(config.WindowHeight-p.Rect.Height, p.Rect.PosY+config.PaddleMoveSpeed)
+		p.Rect.PosY = min(config.WindowHeight-p.Rect.Height, p.Rect.PosY+paddleSpeed)
 	}
 }
 
@@ -183,7 +233,7 @@ func (b *Ball) Move() {
 	b.Rect.PosY += b.SpeedY
 }
 
-// Collision Detection
+// Collision Detection purana
 func (g *Game) checkCollisions() {
 	// Ball Out of Bounds
 	if g.GameBall.Rect.PosX < 0 {
@@ -206,19 +256,45 @@ func (g *Game) checkCollisions() {
 	}
 
 	// Ball hits paddles
-	if g.isBallCollidingWithPaddle(g.Player1Paddle.Rect) {
+	if g.isBallCollidingWithPaddle(g.Player1Paddle.Rect) || g.isBallCollidingWithPaddle(g.Player2Paddle.Rect) {
 		g.GameBall.SpeedX = -g.GameBall.SpeedX
 		g.GameBall.SpeedX += int(config.DifficultyScaling * float64(g.Player1CurrentScore+g.Player2CurrentScore))
+		g.increaseSpeed()
 	}
-	if g.isBallCollidingWithPaddle(g.Player2Paddle.Rect) {
-		g.GameBall.SpeedX = -g.GameBall.SpeedX
-		g.GameBall.SpeedX += int(config.DifficultyScaling * float64(g.Player1CurrentScore+g.Player2CurrentScore))
+
+	if g.GameBall.SpeedX > MaxBallSpeed {
+		g.GameBall.SpeedX = MaxBallSpeed
+	}
+	if g.GameBall.SpeedX < -MaxBallSpeed {
+		g.GameBall.SpeedX = -MaxBallSpeed
+	}
+	if g.GameBall.SpeedY > MaxBallSpeed {
+		g.GameBall.SpeedY = MaxBallSpeed
+	}
+	if g.GameBall.SpeedY < -MaxBallSpeed {
+		g.GameBall.SpeedY = -MaxBallSpeed
 	}
 }
 
-func (g *Game) declareWinner(winner string) {
-	g.Winner = winner
-	g.GameOver = true
+func (g *Game) increaseSpeed() {
+	g.GameBall.SpeedX = int(float64(g.GameBall.SpeedX) * SpeedIncreaseFactor)
+	g.GameBall.SpeedY = int(float64(g.GameBall.SpeedY) * SpeedIncreaseFactor)
+	const minSpeed = 5
+	if g.GameBall.SpeedX < minSpeed && g.GameBall.SpeedX > -minSpeed {
+		if g.GameBall.SpeedX > 0 {
+			g.GameBall.SpeedX = minSpeed
+		} else {
+			g.GameBall.SpeedX = -minSpeed
+		}
+	}
+
+	if g.GameBall.SpeedY < minSpeed && g.GameBall.SpeedY > -minSpeed {
+		if g.GameBall.SpeedY > 0 {
+			g.GameBall.SpeedY = minSpeed
+		} else {
+			g.GameBall.SpeedY = -minSpeed
+		}
+	}
 }
 
 func (g *Game) isBallCollidingWithPaddle(paddle Rectangle) bool {
@@ -241,9 +317,14 @@ func (g *Game) resetBallPosition() {
 			Width:  config.BallSize,
 			Height: config.BallSize,
 		},
-		SpeedX: directionX * config.DefaultBallSpeed,
-		SpeedY: directionY * config.DefaultBallSpeed,
+		SpeedX: directionX * Levels[g.SelectedLevel].BallSpeed,
+		SpeedY: directionY * Levels[g.SelectedLevel].BallSpeed,
 	}
+}
+
+func (g *Game) declareWinner(winner string) {
+	g.Winner = winner
+	g.GameOver = true
 }
 
 // Game Reset
@@ -318,6 +399,7 @@ func main() {
 		Player2Paddle: player2Paddle,
 		GameBall:      gameBall,
 		FontFace:      loadFontFace(),
+		SelectedLevel: "",
 	}
 
 	ebiten.SetWindowTitle("Ultimate Pong!")
