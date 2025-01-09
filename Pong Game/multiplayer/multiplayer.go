@@ -7,6 +7,7 @@ import (
 	"image/color"
 	_ "image/png"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"time"
@@ -16,6 +17,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"golang.org/x/image/font/gofont/goregular"
 )
+
+const WordsPerSec = 2.71828
 
 // Constants and Game Configuration
 type GameConfig struct {
@@ -27,6 +30,7 @@ type GameConfig struct {
 	DefaultBallSpeed  int
 	PaddleMoveSpeed   int
 	DifficultyScaling float64
+	GameOverWords     []string
 }
 
 var config = GameConfig{
@@ -38,6 +42,10 @@ var config = GameConfig{
 	DefaultBallSpeed:  3,
 	PaddleMoveSpeed:   6,
 	DifficultyScaling: 0.1,
+	GameOverWords: []string{
+		"G", "G\tA", "G\tA\tM", "G\tA\tM\tE\t\tO", "o\te\t", "\t\t\tr",
+		"G A M E   O V", "GAME OVER",
+	},
 }
 
 type Rectangle struct {
@@ -62,6 +70,7 @@ type Game struct {
 	FontFace            text.Face
 	GameOver            bool
 	Winner              string
+	WordIndex           float64
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -69,6 +78,7 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func (game *Game) Draw(screen *ebiten.Image) {
+	screen.Fill(color.RGBA{0, 0, 0, 0}) // background color
 	if game.GameOver {
 		game.drawGameOverScreen(screen)
 		return
@@ -92,6 +102,8 @@ func (game *Game) Draw(screen *ebiten.Image) {
 
 func (game *Game) Update() error {
 	if game.GameOver {
+		newIndex := (game.WordIndex + WordsPerSec/60.0)
+		game.WordIndex = math.Mod(newIndex, float64(len(config.GameOverWords)))
 		if ebiten.IsKeyPressed(ebiten.KeyEnter) {
 			game.resetGame()
 		}
@@ -116,15 +128,20 @@ func (g *Game) drawMidLine(screen *ebiten.Image) {
 }
 
 func (game *Game) drawTextCentered(screen *ebiten.Image, str string, yOffset float64) {
-	x := float64(config.WindowWidth)/2 - float64(config.WindowWidth)/2
+	// textWidth := float64(len(str) * 10)
+	// x := (float64(config.WindowWidth) - textWidth) / 2
 	y := float64(config.WindowHeight)/2 + yOffset
+	bounds := screen.Bounds()
+	x := float64(bounds.Dx() / 2)
 	opts := &text.DrawOptions{}
-	opts.GeoM.Translate(x, y)
+	opts.GeoM.Translate((x)-float64(len(str)*8/2), (y))
+	// opts.GeoM.Translate(x, y)
 	text.Draw(screen, str, game.FontFace, opts)
 }
 
 func (game *Game) drawGameOverScreen(screen *ebiten.Image) {
-	game.drawTextCentered(screen, "Game Over!", -60)
+	word := config.GameOverWords[int(game.WordIndex)]
+	game.drawTextCentered(screen, word, -60)
 	game.drawTextCentered(screen, fmt.Sprintf("Winner: %s", game.Winner), -20)
 	score := game.Player1CurrentScore
 	if game.Winner == "Player 2" {
