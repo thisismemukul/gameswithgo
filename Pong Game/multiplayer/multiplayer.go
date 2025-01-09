@@ -7,7 +7,9 @@ import (
 	"image/color"
 	_ "image/png"
 	"log"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -71,6 +73,7 @@ func (game *Game) Draw(screen *ebiten.Image) {
 		game.drawGameOverScreen(screen)
 		return
 	}
+	game.drawMidLine(screen)
 	game.drawPaddles(screen)
 	game.drawBall(screen)
 	game.drawScores(screen)
@@ -103,6 +106,15 @@ func (game *Game) Update() error {
 }
 
 // Drawing Helpers
+func (g *Game) drawMidLine(screen *ebiten.Image) {
+	midX := config.WindowWidth / 2
+	for y := 0; y < config.WindowHeight; y += 20 {
+		if y%40 == 0 {
+			drawRect(screen, Rectangle{PosX: midX - 1, PosY: y, Width: 2, Height: 20}, color.RGBA{200, 200, 200, 255})
+		}
+	}
+}
+
 func (game *Game) drawTextCentered(screen *ebiten.Image, str string, yOffset float64) {
 	x := float64(config.WindowWidth)/2 - float64(config.WindowWidth)/2
 	y := float64(config.WindowHeight)/2 + yOffset
@@ -207,6 +219,9 @@ func (g *Game) isBallCollidingWithPaddle(paddle Rectangle) bool {
 
 // Game Reset
 func (g *Game) resetGame() {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	directionX := rng.Intn(2)*2 - 1
+	directionY := rng.Intn(2)*2 - 1
 	g.GameOver = false
 	g.GameBall = Ball{
 		Rect: Rectangle{
@@ -215,8 +230,8 @@ func (g *Game) resetGame() {
 			Width:  config.BallSize,
 			Height: config.BallSize,
 		},
-		SpeedX: config.DefaultBallSpeed,
-		SpeedY: config.DefaultBallSpeed,
+		SpeedX: directionX * config.DefaultBallSpeed,
+		SpeedY: directionY * config.DefaultBallSpeed,
 	}
 	g.Player1CurrentScore = 0
 	g.Player2CurrentScore = 0
