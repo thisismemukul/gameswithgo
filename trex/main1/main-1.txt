@@ -1,0 +1,245 @@
+// package main
+
+// import (
+// 	"fmt"
+// 	"image"
+
+// 	// "image/color"
+// 	_ "image/png" // For decoding PNG assets
+// 	"log"
+// 	"math/rand"
+
+// 	// "os"
+// 	"time"
+
+// 	"github.com/hajimehoshi/ebiten/v2"
+// 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+// )
+
+// // Constants for screen dimensions
+// const (
+// 	ScreenWidth  = 800
+// 	ScreenHeight = 400
+// )
+
+// // Game struct containing state and assets
+// type Game struct {
+// 	player     *Player
+// 	obstacles  []*Obstacle
+// 	background *Background
+// 	score      int
+// 	isGameOver bool
+// 	startTime  time.Time
+// }
+
+// // Initialization of game assets and state
+// func NewGame() *Game {
+// 	return &Game{
+// 		player:     NewPlayer(),
+// 		obstacles:  []*Obstacle{},
+// 		background: NewBackground(),
+// 		startTime:  time.Now(),
+// 	}
+// }
+
+// func (g *Game) Update() error {
+// 	if g.isGameOver {
+// 		return nil
+// 	}
+
+// 	// Update game objects
+// 	g.player.Update()
+// 	g.background.Update()
+
+// 	// Handle obstacles
+// 	for i, obs := range g.obstacles {
+// 		obs.Update()
+// 		if obs.IsOffscreen() {
+// 			g.obstacles = append(g.obstacles[:i], g.obstacles[i+1:]...)
+// 		}
+// 		if g.player.CollidesWith(obs) {
+// 			g.isGameOver = true
+// 		}
+// 	}
+
+// 	// Spawn new obstacles at random intervals
+// 	if rand.Float64() < 0.01 {
+// 		g.obstacles = append(g.obstacles, NewObstacle())
+// 	}
+
+// 	// Update score
+// 	if !g.isGameOver {
+// 		elapsed := time.Since(g.startTime)
+// 		g.score = int(elapsed.Seconds() * 10)
+// 	}
+
+// 	return nil
+// }
+
+// func (g *Game) Draw(screen *ebiten.Image) {
+// 	// Draw background
+// 	g.background.Draw(screen)
+
+// 	// Draw player
+// 	g.player.Draw(screen)
+
+// 	// Draw obstacles
+// 	for _, obs := range g.obstacles {
+// 		obs.Draw(screen)
+// 	}
+
+// 	// Draw score
+// 	text := "Score: " + fmt.Sprint(g.score)
+// 	ebitenutil.DebugPrintAt(screen, text, 10, 10)
+
+// 	// Game over message
+// 	if g.isGameOver {
+// 		ebitenutil.DebugPrintAt(screen, "Game Over! Press R to Restart", ScreenWidth/2-100, ScreenHeight/2)
+// 	}
+// }
+
+// func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+// 	return ScreenWidth, ScreenHeight
+// }
+
+// func main() {
+// 	rand.Seed(time.Now().UnixNano())
+// 	game := NewGame()
+
+// 	ebiten.SetWindowSize(ScreenWidth, ScreenHeight)
+// 	ebiten.SetWindowTitle("T-Rex Runner Game")
+
+// 	if err := ebiten.RunGame(game); err != nil {
+// 		log.Fatal(err)
+// 	}
+// }
+
+// // Player struct representing the T-Rex
+// type Player struct {
+// 	x, y          float64
+// 	width, height int
+// 	velocityY     float64
+// 	isJumping     bool
+// 	image         *ebiten.Image
+// }
+
+// func NewPlayer() *Player {
+// 	img, _, err := ebitenutil.NewImageFromFile("assets/sprite_0.png")
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	return &Player{
+// 		x:      50,
+// 		y:      ScreenHeight - 80,
+// 		width:  44,
+// 		height: 47,
+// 		image:  img,
+// 	}
+// }
+
+// func (p *Player) Update() {
+// 	if ebiten.IsKeyPressed(ebiten.KeySpace) && !p.isJumping {
+// 		p.velocityY = -10
+// 		p.isJumping = true
+// 	}
+
+// 	// Gravity
+// 	p.velocityY += 0.5
+// 	p.y += p.velocityY
+
+// 	// Prevent falling below the ground
+// 	if p.y > ScreenHeight-80 {
+// 		p.y = ScreenHeight - 80
+// 		p.isJumping = false
+// 	}
+// }
+
+// func (p *Player) Draw(screen *ebiten.Image) {
+// 	opts := &ebiten.DrawImageOptions{}
+// 	opts.GeoM.Translate(p.x, p.y)
+// 	screen.DrawImage(p.image, opts)
+// }
+
+// func (p *Player) CollidesWith(obs *Obstacle) bool {
+// 	playerRect := image.Rect(int(p.x), int(p.y), int(p.x)+p.width, int(p.y)+p.height)
+// 	obstacleRect := obs.Bounds()
+// 	return playerRect.Overlaps(obstacleRect)
+// }
+
+// // Obstacle struct
+
+// type Obstacle struct {
+// 	x, y          float64
+// 	width, height int
+// 	image         *ebiten.Image
+// }
+
+// func NewObstacle() *Obstacle {
+// 	img, _, err := ebitenutil.NewImageFromFile("assets/covid.png")
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	return &Obstacle{
+// 		x:      ScreenWidth,
+// 		y:      ScreenHeight - 80,
+// 		width:  25,
+// 		height: 50,
+// 		image:  img,
+// 	}
+// }
+
+// func (o *Obstacle) Update() {
+// 	o.x -= 5 // Move obstacle leftward
+// }
+
+// func (o *Obstacle) Draw(screen *ebiten.Image) {
+// 	opts := &ebiten.DrawImageOptions{}
+// 	opts.GeoM.Translate(o.x, o.y)
+// 	screen.DrawImage(o.image, opts)
+// }
+
+// func (o *Obstacle) IsOffscreen() bool {
+// 	return o.x+float64(o.width) < 0
+// }
+
+// func (o *Obstacle) Bounds() image.Rectangle {
+// 	return image.Rect(int(o.x), int(o.y), int(o.x)+o.width, int(o.y)+o.height)
+// }
+
+// // Background scrolling
+
+// type Background struct {
+// 	x     float64
+// 	image *ebiten.Image
+// }
+
+// func NewBackground() *Background {
+// 	img, _, err := ebitenutil.NewImageFromFile("assets/200-offline-sprite.png")
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+
+// 	return &Background{
+// 		x:     0,
+// 		image: img,
+// 	}
+// }
+
+// func (b *Background) Update() {
+// 	b.x -= 2
+// 	if b.x <= -ScreenWidth {
+// 		b.x = 0
+// 	}
+// }
+
+// func (b *Background) Draw(screen *ebiten.Image) {
+// 	opts := &ebiten.DrawImageOptions{}
+// 	opts.GeoM.Translate(b.x, 0)
+// 	screen.DrawImage(b.image, opts)
+
+// 	// Draw second part for seamless scrolling
+// 	opts.GeoM.Translate(ScreenWidth, 0)
+// 	screen.DrawImage(b.image, opts)
+// }

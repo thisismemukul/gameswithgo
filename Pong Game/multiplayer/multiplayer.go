@@ -183,18 +183,6 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 func (game *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{0, 0, 0, 0}) // background color
 	if game.GameOver {
-		if game.GameOver {
-			if backgroundPlayer.IsPlaying() {
-				backgroundPlayer.Close()
-			}
-			if gameOverSoundDataPlayer != nil && !gameOverSoundDataPlayer.IsPlaying() {
-				gameOverSoundDataPlayer.Rewind()
-				gameOverSoundDataPlayer.Play()
-			}
-			game.drawGameOverScreen(screen)
-			return
-		}
-
 		game.drawGameOverScreen(screen)
 		return
 	}
@@ -228,6 +216,13 @@ func (game *Game) Update() error {
 		return nil
 	}
 	if game.GameOver {
+		if backgroundPlayer.IsPlaying() {
+			backgroundPlayer.Pause()
+		}
+		if gameOverSoundDataPlayer != nil && !gameOverSoundDataPlayer.IsPlaying() {
+			gameOverSoundDataPlayer.Rewind()
+			gameOverSoundDataPlayer.Play()
+		}
 		newIndex := (game.WordIndex + WordsPerSec/60.0)
 		game.WordIndex = math.Mod(newIndex, float64(len(config.GameOverWords)))
 		if ebiten.IsKeyPressed(ebiten.KeyEnter) {
