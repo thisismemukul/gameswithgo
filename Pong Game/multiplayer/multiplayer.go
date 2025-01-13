@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
 	"image"
 	"image/color"
@@ -12,13 +14,35 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
+	"github.com/hajimehoshi/ebiten/v2/audio/mp3"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-const WordsPerSec = 2.71828
-const SpeedIncreaseFactor = 1.1
-const MaxBallSpeed = 20
+// Embed audio files
+//
+//go:embed assets/background.mp3
+var backgroundMusicData []byte
+
+//go:embed assets/hitpaddleball.mp3
+var hitPaddleBallSoundData []byte
+
+//go:embed assets/hitwallball.mp3
+var hitWallBallSoundData []byte
+
+//go:embed assets/outofboundary.mp3
+var outOfBoundarySoundData []byte
+
+//go:embed assets/gameover.mp3
+var gameOverSoundData []byte
+
+const (
+	SampleRate          = 44100
+	WordsPerSec         = 2.71828
+	SpeedIncreaseFactor = 1.1
+	MaxBallSpeed        = 20
+)
 
 // Constants and Game Configuration
 type GameConfig struct {
@@ -47,6 +71,16 @@ var config = GameConfig{
 		"G A M E   O V", "GAME OVER", "GAME OVER", "GAME OVER", "GAME OVER",
 	},
 }
+
+var (
+	audioContext             = audio.NewContext(SampleRate)
+	backgroundPlayer         *audio.Player
+	hitPaddleBallSoundPlayer *audio.Player
+	hitWallBallSoundPlayer   *audio.Player
+	outOfBoundarySoundPlayer *audio.Player
+	gameOverSoundDataPlayer  *audio.Player
+	// infiniteLoop             *audio.InfiniteLoop
+)
 
 // Game levels
 type DifficultyLevel struct {
@@ -86,6 +120,62 @@ type Game struct {
 	SelectedLevel       string
 }
 
+func init() {
+	// Load background music
+	stream, err := mp3.DecodeWithSampleRate(SampleRate, bytes.NewReader(backgroundMusicData))
+	if err != nil {
+		log.Fatalf("Failed to decode background music: %v", err)
+	}
+	backgroundPlayer, err = audioContext.NewPlayer(stream)
+	if err != nil {
+		log.Fatalf("Failed to create background music player: %v", err)
+	}
+	// backgroundPlayer.SetLoop(true)
+	// if infiniteLoop != nil {
+	// 	backgroundPlayer.Play()
+	// }
+
+	// Load hit paddle ball sound
+	stream, err = mp3.DecodeWithSampleRate(SampleRate, bytes.NewReader(hitPaddleBallSoundData))
+	if err != nil {
+		log.Fatalf("Failed to decode hit paddle ball sound: %v", err)
+	}
+	hitPaddleBallSoundPlayer, err = audioContext.NewPlayer(stream)
+	if err != nil {
+		log.Fatalf("Failed to create hit paddle ball sound player: %v", err)
+	}
+
+	// Load kit wall ball sound
+	stream, err = mp3.DecodeWithSampleRate(SampleRate, bytes.NewReader(hitWallBallSoundData))
+	if err != nil {
+		log.Fatalf("Failed to decode hit wall sound: %v", err)
+	}
+	hitWallBallSoundPlayer, err = audioContext.NewPlayer(stream)
+	if err != nil {
+		log.Fatalf("Failed to create hit wall sound player: %v", err)
+	}
+
+	// Load ball out of boundary sound
+	stream, err = mp3.DecodeWithSampleRate(SampleRate, bytes.NewReader(outOfBoundarySoundData))
+	if err != nil {
+		log.Fatalf("Failed to decode ball out of boundary sound: %v", err)
+	}
+	outOfBoundarySoundPlayer, err = audioContext.NewPlayer(stream)
+	if err != nil {
+		log.Fatalf("Failed to create ball out of boundary sound player: %v", err)
+	}
+
+	// Load game over sound
+	stream, err = mp3.DecodeWithSampleRate(SampleRate, bytes.NewReader(gameOverSoundData))
+	if err != nil {
+		log.Fatalf("Failed to decode hit wall sound: %v", err)
+	}
+	gameOverSoundDataPlayer, err = audioContext.NewPlayer(stream)
+	if err != nil {
+		log.Fatalf("Failed to create hit wall sound player: %v", err)
+	}
+}
+
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return config.WindowWidth, config.WindowHeight
 }
@@ -93,6 +183,18 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 func (game *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{0, 0, 0, 0}) // background color
 	if game.GameOver {
+		if game.GameOver {
+			if backgroundPlayer.IsPlaying() {
+				backgroundPlayer.Close()
+			}
+			if gameOverSoundDataPlayer != nil && !gameOverSoundDataPlayer.IsPlaying() {
+				gameOverSoundDataPlayer.Rewind()
+				gameOverSoundDataPlayer.Play()
+			}
+			game.drawGameOverScreen(screen)
+			return
+		}
+
 		game.drawGameOverScreen(screen)
 		return
 	}
@@ -107,6 +209,11 @@ func (game *Game) Draw(screen *ebiten.Image) {
 }
 
 func (game *Game) Update() error {
+
+	if !backgroundPlayer.IsPlaying() {
+		backgroundPlayer.Play()
+	}
+
 	if game.SelectedLevel == "" {
 		if ebiten.IsKeyPressed(ebiten.Key1) {
 			game.SelectedLevel = "Easy"
@@ -238,9 +345,17 @@ func (g *Game) checkCollisions() {
 	// Ball Out of Bounds
 	if g.GameBall.Rect.PosX < 0 {
 		g.Player2CurrentScore++
+		if outOfBoundarySoundPlayer != nil {
+			outOfBoundarySoundPlayer.Rewind()
+			outOfBoundarySoundPlayer.Play()
+		}
 		g.resetBallPosition()
 	} else if g.GameBall.Rect.PosX+g.GameBall.Rect.Width > config.WindowWidth {
 		g.Player1CurrentScore++
+		if outOfBoundarySoundPlayer != nil {
+			outOfBoundarySoundPlayer.Rewind()
+			outOfBoundarySoundPlayer.Play()
+		}
 		g.resetBallPosition()
 	}
 
@@ -253,12 +368,19 @@ func (g *Game) checkCollisions() {
 	// Ball Hits Walls
 	if g.GameBall.Rect.PosY <= 0 || g.GameBall.Rect.PosY+g.GameBall.Rect.Height >= config.WindowHeight {
 		g.GameBall.SpeedY = -g.GameBall.SpeedY
+		if hitWallBallSoundPlayer != nil {
+			hitWallBallSoundPlayer.Rewind()
+			hitWallBallSoundPlayer.Play()
+		}
 	}
 
 	// Ball hits paddles
 	if g.isBallCollidingWithPaddle(g.Player1Paddle.Rect) || g.isBallCollidingWithPaddle(g.Player2Paddle.Rect) {
+		if hitPaddleBallSoundPlayer != nil {
+			hitPaddleBallSoundPlayer.Rewind()
+			hitPaddleBallSoundPlayer.Play()
+		}
 		g.GameBall.SpeedX = -g.GameBall.SpeedX
-		g.GameBall.SpeedX += int(config.DifficultyScaling * float64(g.Player1CurrentScore+g.Player2CurrentScore))
 		g.increaseSpeed()
 	}
 

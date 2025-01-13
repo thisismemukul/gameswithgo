@@ -10,10 +10,12 @@ require (
 require (
 	github.com/ebitengine/gomobile v0.0.0-20240911145611-4856209ac325 // indirect
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
+	github.com/ebitengine/oto/v3 v3.3.2 // indirect
 	github.com/ebitengine/purego v0.8.0 // indirect
 	github.com/go-text/typesetting v0.2.0 // indirect
 	github.com/haashemi/go-harfbuzz v0.0.0-20240304202021-7d8c8e99547f // indirect
 	github.com/haashemi/writer v0.0.1 // indirect
+	github.com/hajimehoshi/go-mp3 v0.3.4 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
 	github.com/mattn/go-pointer v0.0.1 // indirect
 	golang.org/x/sync v0.10.0 // indirect
