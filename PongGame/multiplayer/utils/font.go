@@ -8,7 +8,7 @@ import (
 )
 
 func LoadFontFace() text.Face {
-	fontFilePath := "../assets/spaceranger.ttf"
+	fontFilePath := "assets/spaceranger.ttf"
 	fontFile, err := os.Open(fontFilePath)
 	if err != nil {
 		log.Fatalf("Error opening font file %s: %v", fontFilePath, err)

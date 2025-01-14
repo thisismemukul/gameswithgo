@@ -7,7 +7,7 @@ import (
 )
 
 func LoadIconImage() image.Image {
-	iconFile, err := os.Open("../assets/icon_black.png")
+	iconFile, err := os.Open("assets/icon_black.png")
 	if err != nil {
 		log.Fatalf("failed to load icon image: %v", err)
 	}
