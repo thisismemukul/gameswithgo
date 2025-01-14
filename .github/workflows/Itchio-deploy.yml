@@ -14,7 +14,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: PongGame/multiplayer
+        working-directory: PongGame/multiplayer  # Change the working directory to PongGame/multiplayer
 
     steps:
       # Step to checkout code from the repository
@@ -35,8 +35,8 @@ jobs:
       - name: Build the game
         run: |
           mkdir -p dist   # Create the dist directory if it does not exist
-          go build -o dist/pong-game PongGame/multiplayer/main.go # Build output in `dist/`
-        
+          go build -o dist/pong-game main.go  # Corrected path since the working directory is set
+
       # Step to publish the build to Itch.io
       - name: Publish to Itch.io
         uses: manleydev/butler-publish-itchio-action@master
