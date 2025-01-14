@@ -1,47 +1,35 @@
-name: ItchIo Deploy Workflow (WASM)
+name: Deploy to Itch.io
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
-    paths:
-      - PongGame/multiplayer/**
-  workflow_dispatch:
+      - main  # Trigger on push to the main branch
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  itchio-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: PongGame/multiplayer
-
     steps:
-      # Step to checkout code from the repository
-      - uses: actions/checkout@v3
-        name: Checkout Code
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-      # Step to set up Go version
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: 1.23.4
-
-      # Step to install Go dependencies
-      - name: Install Go dependencies
-        run: go mod tidy
-
-      # Step to build the Go application as WebAssembly
-      - name: Build the game for WebAssembly (WASM)
+      - name: Install Butler
         run: |
-          GOOS=js GOARCH=wasm go build -o dist/pong-game.wasm PongGame/multiplayer/main.go
+          curl -L -o butler.zip https://broth.itch.ovh/butler/linux-amd64/head/archive/default
+          unzip butler.zip -d butler
+          sudo mv butler/butler /usr/local/bin/
+          butler -V
 
-      # Step to publish to Itch.io as a web game (WASM)
-      - name: Publish to Itch.io (WASM)
-        uses: manleydev/butler-publish-itchio-action@v1.0.3
+      - name: Build Game for Web (Ebiten)
+        run: |
+          sudo apt-get install golang-go -y
+          GOOS=js GOARCH=wasm go build -o main.wasm
+
+      - name: Upload to Itch.io
         env:
-          BUTLER_CREDENTIALS: ${{ secrets.ITCHIO_API_KEY }}
-          CHANNEL: html          # Set up for Web/HTML
-          ITCH_GAME: pong-game   # Your game name on Itch.io
-          ITCH_USER: thisismemukul    # Your Itch.io username
-          PACKAGE: PongGame/multiplayer/dist
+          BUTLER_API_KEY: ${{ secrets.ITCHIO_API_KEY }}  # Keep the API key secure
+        run: |
+          mkdir release
+          cp index.html wasm_exec.js main.wasm release/
+          butler push release thisismemukul/pong-game:html5 --verbose
