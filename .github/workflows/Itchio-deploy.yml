@@ -31,11 +31,20 @@ jobs:
       - name: Install Go dependencies
         run: go mod tidy
 
+      # Step to install system dependencies required by Ebiten (audio and graphical support)
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx11-dev \
+            libasound2-dev \
+            pkg-config
+
       # Step to build the Go application (will generate the `dist` directory)
       - name: Build the game
         run: |
           mkdir -p dist   # Create the dist directory if it does not exist
-          go build -o dist/pong-game main.go  # Corrected path since the working directory is set
+          go build -o dist/pong-game main.go  # Build the Go application in the dist directory
 
       # Step to publish the build to Itch.io
       - name: Publish to Itch.io
