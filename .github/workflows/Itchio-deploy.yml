@@ -14,7 +14,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: PongGame/multiplayer  # Change the working directory to PongGame/multiplayer
+        working-directory: PongGame/multiplayer
 
     steps:
       # Step to checkout code from the repository
@@ -27,24 +27,21 @@ jobs:
         with:
           go-version: 1.23.4  # Ensure this is the version your project needs
 
-      # Step to install dependencies for Go
-      - name: Install Go dependencies
-        run: go mod tidy
-
-      # Step to install system dependencies required by Ebiten (audio and graphical support)
+      # Step to install system dependencies (including ALSA, X11, Xrandr)
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            libx11-dev \
-            libasound2-dev \
-            pkg-config
+          sudo apt-get install -y libasound2-dev libx11-dev libxrandr-dev pkg-config
+
+      # Step to install Go dependencies
+      - name: Install Go dependencies
+        run: go mod tidy
 
       # Step to build the Go application (will generate the `dist` directory)
       - name: Build the game
         run: |
           mkdir -p dist   # Create the dist directory if it does not exist
-          go build -o dist/pong-game main.go  # Build the Go application in the dist directory
+          go build -o dist/pong-game main.go # Corrected path since the working directory is set
 
       # Step to publish the build to Itch.io
       - name: Publish to Itch.io
