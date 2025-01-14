@@ -118,9 +118,9 @@ func (g *Game) Update() error {
 		}
 		return nil
 	}
-
-	g.Player1Paddle.HandleInput(ebiten.KeyW, ebiten.KeyS, Levels[g.SelectedLevel].PaddleSpeed, g.GameBall.SpeedX)
-	g.Player2Paddle.HandleInput(ebiten.KeyArrowUp, ebiten.KeyArrowDown, Levels[g.SelectedLevel].PaddleSpeed, g.GameBall.SpeedX)
+	touchIDs := ebiten.AppendTouchIDs(nil)
+	g.Player1Paddle.HandleInput(ebiten.KeyW, ebiten.KeyS, Levels[g.SelectedLevel].PaddleSpeed, touchIDs, g.GameBall.SpeedX)
+	g.Player2Paddle.HandleInput(ebiten.KeyArrowUp, ebiten.KeyArrowDown, Levels[g.SelectedLevel].PaddleSpeed, touchIDs, g.GameBall.SpeedX)
 	g.GameBall.Move()
 	g.checkCollisions()
 	return nil
