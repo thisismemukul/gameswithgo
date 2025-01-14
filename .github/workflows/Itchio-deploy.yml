@@ -1,0 +1,35 @@
+name: ItchIo deploy workflow
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - PongGame/multiplayer/**
+  workflow_dispatch:
+
+jobs:
+  itchio-deploy:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: PongGame/multiplayer
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.23.4 # Adjust to your project's Go versio
+
+      - name: Publish to Itch.io
+        uses: manleydev/butler-publish-itchio-action@master
+        env:
+          BUTLER_CREDENTIALS: ${{ secrets.ITCHIO_API_KEY }}
+          CHANNEL: HTML
+          ITCH_GAME: pong-game
+          ITCH_USER: thisismemukul
+          PACKAGE: PongGame/multiplayer/dist
