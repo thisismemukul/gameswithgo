@@ -317,7 +317,7 @@ func NewGame() *Game {
 		Player1Paddle: player1Paddle,
 		Player2Paddle: player2Paddle,
 		GameBall:      gameBall,
-		FontFace:      utils.LoadFontFace(),
+		FontFace:      utils.LoadFontFaceData(),
 		SelectedLevel: "",
 	}
 }

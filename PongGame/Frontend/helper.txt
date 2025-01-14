@@ -1,0 +1,13 @@
+GOOS=js GOARCH=wasm go build -o main.wasm main.go
+
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+http-server
+
+	Set-ExecutionPolicy Restricted -Scope CurrentUser
+
+
+<iframe frameborder="0" src="https://itch.io/embed/3244344?bg_color=1B0044&amp;fg_color=D6C5F0&amp;link_color=fa5c5c&amp;border_color=7c4cc8" width="552" height="167"><a href="https://thisismemukul.itch.io/pong-game">pong-game by thisismemukul</a></iframe>
+
+
+<iframe frameborder="0" src="https://itch.io/embed/3244344?linkback=true&amp;bg_color=1B0044&amp;fg_color=D6C5F0&amp;link_color=fa5c5c&amp;border_color=7c4cc8" width="552" height="167"><a href="https://thisismemukul.itch.io/pong-game">pong-game by thisismemukul</a></iframe>

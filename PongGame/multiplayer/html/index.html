@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WASM Game Loader</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preload" href="assets/pressstart2p.woff" as="font" type="font/woff" crossorigin="anonymous">
+</head>
+<body class="body-itch">
+    <div class="loading-screen" id="loading-screen">
+        <p class="loading-text">Loading...</p>
+        <div class="image-div">
+            <img src="assets/iconload.png" class="image" alt="Loading Icon">
+        </div>
+    </div>
+
+    <script src="wasm_exec.js"></script>
+    <script>
+    // Polyfill for browsers that don't support instantiateStreaming
+    if (!WebAssembly.instantiateStreaming) {
+        WebAssembly.instantiateStreaming = async (resp, importObject) => {
+            const source = await (await resp).arrayBuffer();
+            return await WebAssembly.instantiate(source, importObject);
+        };
+    }
+
+    const go = new Go();
+    WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then(result => {
+        document.getElementById("loading-screen").style.display = "none";
+        go.run(result.instance);
+    }).catch(err => {
+        document.getElementById("loading-screen").innerText = "Failed to load game.";
+        console.error("Error loading WASM:", err);
+    });
+    </script>
+</body>
+</html>

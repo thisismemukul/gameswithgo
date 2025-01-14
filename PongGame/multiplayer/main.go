@@ -19,7 +19,7 @@ func main() {
 
 	ebiten.SetWindowTitle("Ultimate Pong!")
 	ebiten.SetWindowSize(models.Config.WindowWidth, models.Config.WindowHeight)
-	ebiten.SetWindowIcon([]image.Image{utils.LoadIconImage()})
+	ebiten.SetWindowIcon([]image.Image{utils.LoadIconImageData()})
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	if err := ebiten.RunGame(game); err != nil {
