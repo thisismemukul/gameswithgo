@@ -47,6 +47,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.drawBall(screen)
 	g.drawScores(screen)
 }
+func isWithinRect(px, py, x, y, width, height int) bool {
+	return px >= x && px <= x+width && py >= y && py <= y+height
+}
 
 func (g *Game) Update() error {
 
@@ -55,6 +58,7 @@ func (g *Game) Update() error {
 	}
 
 	if g.SelectedLevel == "" {
+		// Handle keyboard input
 		if ebiten.IsKeyPressed(ebiten.Key1) {
 			g.SelectedLevel = "Easy"
 			g.applyLevelSettings()
@@ -64,6 +68,38 @@ func (g *Game) Update() error {
 		} else if ebiten.IsKeyPressed(ebiten.Key3) {
 			g.SelectedLevel = "Hard"
 			g.applyLevelSettings()
+		}
+
+		// Handle mouse clicks
+		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+			x, y := ebiten.CursorPosition()
+			if isWithinRect(x, y, Config.WindowWidth/2-50, Config.WindowHeight/2-30, 100, 30) {
+				g.SelectedLevel = "Easy"
+				g.applyLevelSettings()
+			} else if isWithinRect(x, y, Config.WindowWidth/2-50, Config.WindowHeight/2+10, 100, 30) {
+				g.SelectedLevel = "Medium"
+				g.applyLevelSettings()
+			} else if isWithinRect(x, y, Config.WindowWidth/2-50, Config.WindowHeight/2+50, 100, 30) {
+				g.SelectedLevel = "Hard"
+				g.applyLevelSettings()
+			}
+		}
+
+		// Handle touch input
+		touchIDs := make([]ebiten.TouchID, 0)
+		touchIDs = ebiten.AppendTouchIDs(touchIDs)
+		for _, touchID := range touchIDs {
+			tx, ty := ebiten.TouchPosition(touchID)
+			if isWithinRect(tx, ty, Config.WindowWidth/2-50, Config.WindowHeight/2-30, 100, 30) {
+				g.SelectedLevel = "Easy"
+				g.applyLevelSettings()
+			} else if isWithinRect(tx, ty, Config.WindowWidth/2-50, Config.WindowHeight/2+10, 100, 30) {
+				g.SelectedLevel = "Medium"
+				g.applyLevelSettings()
+			} else if isWithinRect(tx, ty, Config.WindowWidth/2-50, Config.WindowHeight/2+50, 100, 30) {
+				g.SelectedLevel = "Hard"
+				g.applyLevelSettings()
+			}
 		}
 		return nil
 	}
@@ -106,12 +142,19 @@ func (g *Game) drawMidLine(screen *ebiten.Image) {
 	}
 }
 
+func drawButton(screen *ebiten.Image, x, y, width, height int, label string) {
+	drawRect(screen, Rectangle{PosX: x, PosY: y, Width: width + width/3, Height: height}, color.RGBA{100, 100, 100, 255})
+	opts := &text.DrawOptions{}
+	opts.GeoM.Translate(float64(x+width/4), float64(y+height/3))
+	text.Draw(screen, label, utils.LoadFontFaceData(), opts)
+}
+
 func (game *Game) drawSelectGameLevelScreen(screen *ebiten.Image) {
 	game.drawTextCentered(screen, "Need 5 Scores to win", -100)
-	game.drawTextCentered(screen, "Select level", -60)
-	game.drawTextCentered(screen, "Easy:\tPress 1", -20)
-	game.drawTextCentered(screen, "Medium:\tPress 2", 20)
-	game.drawTextCentered(screen, "Hard:\tPress 3", 60)
+	game.drawTextCentered(screen, "Select level:", -60)
+	drawButton(screen, Config.WindowWidth/2-50, Config.WindowHeight/2-30, 100, 30, "Easy")
+	drawButton(screen, Config.WindowWidth/2-50, Config.WindowHeight/2+10, 100, 30, "Medium")
+	drawButton(screen, Config.WindowWidth/2-50, Config.WindowHeight/2+50, 100, 30, "Hard")
 }
 
 func (game *Game) drawGameOverScreen(screen *ebiten.Image) {
