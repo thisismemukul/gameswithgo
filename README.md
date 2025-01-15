@@ -1,13 +1,7 @@
 # Games with GoLang
-
-<p align="center">
-<img src="https://github.com/thisismemukul/gameswithgo/blob/main/gameswithgo.gif" alt="Games with GoLang" title="Games with GoLang show gif" width="500"/>
-</p>
 This repository contains a verity of games using GO. 
-
-
 <p align="center">
-<img src="https://github.com/thisismemukul/youtube_clone/blob/main/assets/demo.gif" alt="MERN Stack Youtube Clone" title="MERN Stack Youtube Clone show gif" width="500"/>
+<img src="https://github.com/thisismemukul/gameswithgo/blob/main/PongGame/PongGameBanner.png" alt="Games with GoLang" title="Games with GoLang show png" width="500"/>
 </p>
 
 - [Installation Guide](#installation-guide) - How to get started with Youtube Web App
