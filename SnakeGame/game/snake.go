@@ -9,16 +9,19 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/thisismemukul/snake/consts"
+	"github.com/thisismemukul/snake/utils"
 )
 
 type Game struct {
-	snake    []Position
-	dir      Position
-	food     Position
-	score    int
-	gameOver bool
-	tick     int
-	randGen  *rand.Rand
+	snake          []Position
+	dir            Position
+	food           Position
+	score          int
+	gameOver       bool
+	tick           int
+	randGen        *rand.Rand
+	appleImage     *ebiten.Image
+	snakeHeadImage *ebiten.Image
 }
 
 func (g *Game) Restart() {
@@ -94,7 +97,7 @@ func (g *Game) collidesWithSelf(head Position) bool {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	screen.Fill(color.RGBA{0x00, 0x00, 0x00, 0xff})
+	screen.Fill(color.RGBA{0x00, 0x80, 0x00, 0xff})
 
 	// Draw game over message
 	if g.gameOver {
@@ -102,25 +105,29 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	// Draw the snake
-	for _, pos := range g.snake {
+	for i, pos := range g.snake {
 		x := pos.X * consts.GRID_SIZE
 		y := pos.Y * consts.GRID_SIZE
-
-		segment := ebiten.NewImage(consts.GRID_SIZE, consts.GRID_SIZE)
-		segment.Fill(color.RGBA{0x00, 0x80, 0x00, 0xff})
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(x), float64(y))
-		screen.DrawImage(segment, op)
+
+		if i == 0 && g.snakeHeadImage != nil {
+			screen.DrawImage(g.snakeHeadImage, op)
+		} else {
+			segment := ebiten.NewImage(consts.GRID_SIZE, consts.GRID_SIZE)
+			segment.Fill(color.RGBA{0x87, 0xCE, 0xEB, 0xff})
+			screen.DrawImage(segment, op)
+		}
 	}
 
-	// Draw the food
+	// Draw the apple (food)
 	fx := g.food.X * consts.GRID_SIZE
 	fy := g.food.Y * consts.GRID_SIZE
 	food := ebiten.NewImage(consts.GRID_SIZE, consts.GRID_SIZE)
 	food.Fill(color.RGBA{0x80, 0x00, 0x00, 0xff})
 	foodOp := &ebiten.DrawImageOptions{}
 	foodOp.GeoM.Translate(float64(fx), float64(fy))
-	screen.DrawImage(food, foodOp)
+	screen.DrawImage(g.appleImage, foodOp)
 
 	// Draw score
 	g.drawScores(screen)
@@ -139,5 +146,9 @@ func NewGame() *Game {
 		randGen: rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	g.Restart()
+
+	g.appleImage = utils.LoadAppleImage()
+	g.snakeHeadImage = utils.LoadSnakeHeadImage()
+
 	return g
 }
