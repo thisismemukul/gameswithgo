@@ -3,12 +3,37 @@ package snakegame
 import (
 	"fmt"
 	"image/color"
+	"math/rand"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/thisismemukul/snake/consts"
 )
 
-type Game struct{}
+type Game struct {
+	snake    []Position
+	dir      Position
+	food     Position
+	score    int
+	gameOver bool
+	tick     int
+	randGen  *rand.Rand
+}
 
+func (g *Game) Restart() {
+	g.snake = []Position{{X: 5, Y: 5}, {X: 4, Y: 5}, {X: 3, Y: 5}, {X: 2, Y: 5}, {X: 1, Y: 5}}
+	g.dir = Position{X: 1, Y: 0}
+	g.score = 0
+	g.gameOver = false
+	g.tick = 0
+	g.spawnFood()
+}
+
+func (g *Game) spawnFood() {
+	g.food = Position{
+		X: g.randGen.Intn(consts.SCREEN_WIDTH / consts.GRID_SIZE),
+		Y: g.randGen.Intn(consts.SCREEN_HEIGHT / consts.GRID_SIZE),
+	}
+}
 func (g *Game) Update() error {
 	return nil
 }
